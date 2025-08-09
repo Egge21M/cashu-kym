@@ -4,12 +4,12 @@ import { validateAndNormalizeUrl } from "./utils";
 
 const pool = new SimplePool();
 
-type MintRecommendation = {
+export type MintRecommendation = {
   score: number;
   comment: string;
 };
 
-type AggregatedMintRecommendation = {
+export type AggregatedMintRecommendation = {
   score: number;
   recommendations: MintRecommendation[];
 };

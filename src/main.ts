@@ -1,9 +1,20 @@
-import { AuditorSerive } from "./auditor";
-import { discoverMintsOnNostr } from "./nostr";
+import { AuditorSerive, type AuditorEntry } from "./auditor";
+import {
+  discoverMintsOnNostr,
+  type AggregatedMintRecommendation,
+} from "./nostr";
 
 const auditor = new AuditorSerive("https://api.audit.8333.space");
 
-export async function discoverMints(relays: string[], timeout: number) {
+type DiscoveredMint = AggregatedMintRecommendation & {
+  url: string;
+  auditorData: AuditorEntry;
+};
+
+export async function discoverMints(
+  relays: string[],
+  timeout: number,
+): Promise<DiscoveredMint[]> {
   const nostrData = await discoverMintsOnNostr(relays, timeout);
   const auditorData = await auditor.getAllMints();
   const mergedData: any[] = [];
@@ -12,4 +23,5 @@ export async function discoverMints(relays: string[], timeout: number) {
     const auditor = auditorData.get(url) || {};
     mergedData.push({ ...data, url, auditorData: auditor });
   });
+  return mergedData;
 }
