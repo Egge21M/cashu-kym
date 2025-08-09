@@ -1,7 +1,6 @@
 {
   "name": "cashu-kym",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": {
@@ -10,6 +9,10 @@
       "require": "./dist/index.umd.cjs"
     }
   },
+  "author": {
+    "name": "Egge"
+  },
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
