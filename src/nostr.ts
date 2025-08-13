@@ -56,18 +56,25 @@ export class NostrRecommendationsProvider {
   }
 
   async discover(): Promise<Map<string, AggregatedMintRecommendation>> {
-    const events = await this.nip87Fetcher();
-    events.forEach((e) => {
-      if (!isCashuRecommendationEvent(e)) return;
-      const normalizedUrl = validateAndNormalizeUrl(extractMintUrlFromEvent(e));
-      if (!normalizedUrl) return;
-      const recommendation = parseRecommendation(e.content);
-      if (!recommendation) return;
-      const existing = recommendations.get(normalizedUrl);
-      if (existing) existing.push(recommendation);
-      else recommendations.set(normalizedUrl, [recommendation]);
-    });
-    const recommendations = new Map<string, MintRecommendation[]>();
-    return aggregateMintRecommendations(recommendations);
+    try {
+      const events = await this.nip87Fetcher();
+      const recommendations = new Map<string, MintRecommendation[]>();
+      events.forEach((e) => {
+        if (!isCashuRecommendationEvent(e)) return;
+        const normalizedUrl = validateAndNormalizeUrl(
+          extractMintUrlFromEvent(e),
+        );
+        if (!normalizedUrl) return;
+        const recommendation = parseRecommendation(e.content);
+        if (!recommendation) return;
+        const existing = recommendations.get(normalizedUrl);
+        if (existing) existing.push(recommendation);
+        else recommendations.set(normalizedUrl, [recommendation]);
+      });
+      return aggregateMintRecommendations(recommendations);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Nostr discovery failed: ${message}`);
+    }
   }
 }

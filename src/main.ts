@@ -16,34 +16,37 @@ async function fetchNip87Events(
   const pool = new SimplePool();
   const events: NostrEvent[] = [];
 
-  return new Promise<NostrEvent[]>((resolve) => {
-    let resolved = false;
-
-    const subscription = pool.subscribeEose(
-      relays,
-      { kinds: [38000] },
-      {
-        onevent: (event) => {
-          events.push(event);
+  return new Promise<NostrEvent[]>((resolve, reject) => {
+    let done = false;
+    try {
+      pool.subscribeEose(
+        relays,
+        { kinds: [38000] },
+        {
+          onevent: (event) => {
+            events.push(event);
+          },
+          maxWait: timeout,
+          onclose: () => {
+            if (!done) {
+              done = true;
+              resolve(events);
+            }
+          },
         },
-        maxWait: timeout,
-        onclose: () => {
-          if (!resolved) {
-            resolved = true;
-            resolve(events);
-          }
-        },
-      },
-    );
-
-    if (timeout) {
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          subscription.close();
-          resolve(events);
-        }
-      }, timeout + 500);
+      );
+    } catch (error) {
+      if (!done) {
+        done = true;
+        const message = error instanceof Error ? error.message : String(error);
+        reject(
+          new Error(
+            `Failed to subscribe to relays ${JSON.stringify(
+              relays,
+            )}: ${message}`,
+          ),
+        );
+      }
     }
   });
 }
@@ -60,11 +63,16 @@ export class KYMHandler {
   }
 
   async discover(): Promise<SearchResult> {
-    const nostrData = this.nostrProvider.discover();
+    const nostrData = this.nostrProvider.discover().catch((e) => {
+      const message = e instanceof Error ? e.message : String(e);
+      throw new Error(`Could not get nostr recommendations: ${message}`);
+    });
     const auditorData = this.auditorService.getAllMints();
     const bucket = await Promise.allSettled([nostrData, auditorData]);
     if (bucket[0].status === "rejected") {
-      throw new Error("Could not get nostr recommendations");
+      const reason = bucket[0].reason;
+      const message = reason instanceof Error ? reason.message : String(reason);
+      throw new Error(`Could not get nostr recommendations: ${message}`);
     }
     const mergedData: any[] = [];
 

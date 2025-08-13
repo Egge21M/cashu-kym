@@ -1,10 +1,11 @@
 import { AuditorSerive } from "./auditor";
-import type { NostrRecommendationsProvider } from "./nostr";
+import { NostrRecommendationsProvider } from "./nostr";
 import { SearchResult } from "./result";
+import type { Nip87Fetcher } from "./types";
 
 type PureKYMConfig = {
   auditorBaseUrl: string;
-  nip87Provider: NostrRecommendationsProvider;
+  nip87Fetcher: Nip87Fetcher;
 };
 
 export class KYMHandler {
@@ -13,7 +14,7 @@ export class KYMHandler {
 
   constructor(config: PureKYMConfig) {
     this.auditorService = new AuditorSerive(config.auditorBaseUrl);
-    this.nip87Provider = config.nip87Provider;
+    this.nip87Provider = new NostrRecommendationsProvider(config.nip87Fetcher);
   }
 
   async discover(): Promise<SearchResult> {

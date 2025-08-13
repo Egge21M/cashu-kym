@@ -36,7 +36,7 @@ export class SearchResult {
     });
   }
 
-  searcallbackfnch(query: string) {
+  search(query: string) {
     return fuzzySearch(
       query,
       this._results.map((r) => r.url),

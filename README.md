@@ -21,13 +21,16 @@ yarn add cashu-kym
 ## Quick start
 
 ```ts
-import { discoverMints } from "cashu-kym";
+import { KYMHandler } from "cashu-kym";
 
-const relays = ["wss://relay.damus.io"]; // any set of Nostr relays
-const timeoutMs = 3000; // time window to collect recommendations
+const handler = new KYMHandler({
+  auditorBaseUrl: "https://api.audit.8333.space",
+  relays: ["wss://relay.damus.io"],
+  timeout: 3000, // time window to collect recommendations
+});
 
-const mints = await discoverMints(relays, timeoutMs);
-console.log(mints);
+const result = await handler.discover();
+console.log(result.sortByScore());
 ```
 
 Example result item shape:
@@ -54,10 +57,17 @@ Example result item shape:
 
 ## API
 
-### Functions
+### Classes
 
-- `discoverMints(relays: string[], timeoutMs?: number): Promise<DiscoveredMint[]>`
-  - Queries the provided Nostr relays for recommendation events within `timeoutMs` (default: 3000 ms), aggregates scores per mint URL, and joins with auditor metadata.
+- `KYMHandler`
+  - `constructor(config: { auditorBaseUrl: string; relays: string[]; timeout: number; })`
+  - `discover(): Promise<SearchResult>`
+
+- `SearchResult`
+  - `results: DiscoveredMint[]` — raw merged results
+  - `sortByScore(): DiscoveredMint[]` — highest score first
+  - `sortByName(): DiscoveredMint[]` — alphabetical by auditor name
+  - `search(query: string): DiscoveredMint[]` — fuzzy search by URL
 
 ### Types (shape)
 
@@ -92,18 +102,47 @@ export type DiscoveredMint = AggregatedMintRecommendation & {
 };
 ```
 
+## Dependency injection (pure build)
+
+If you want to provide your own Nostr or networking implementations (e.g., in non-browser environments), use the "pure" entry that accepts injected dependencies.
+
+```ts
+import { KYMHandler } from "cashu-kym/pure";
+
+// Provide an object with a discover() method that returns
+// Promise<Map<string, { score: number; recommendations: { score: number; comment: string }[] }>>
+const nip87Provider = {
+  async discover() {
+    // Implement: fetch and aggregate recommendations from your relays
+    return new Map();
+  },
+};
+
+const handler = new KYMHandler({
+  auditorBaseUrl: "https://api.audit.8333.space",
+  nip87Provider,
+});
+
+const result = await handler.discover();
+```
+
+Notes:
+
+- The default `cashu-kym` entry includes a Nostr implementation using `nostr-tools` and `fetch`.
+- The `cashu-kym/pure` entry does not include Nostr plumbing; you inject a compatible provider.
+
 ## Environment
 
 - Browser: works out of the box.
 - Node (>= 18 recommended):
   - Ensure `fetch` is available (Node 18+ includes it; otherwise use `undici`).
-  - Provide a WebSocket implementation for `nostr-tools`:
+  - Provide a WebSocket implementation for `nostr-tools` if you use the default entry.
 
 ## Build from source
 
 - Dev: `npm run dev`
 - Build (library bundle): `npm run build`
-  - Produces bundles in `dist/` (ESM and UMD), plus type declarations.
+  - Produces bundles in `dist/` for `main/` and `pure/` (ESM and CJS), plus rolled type declarations per entry.
 
 ## Notes
 
