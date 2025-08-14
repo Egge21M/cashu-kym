@@ -1,5 +1,6 @@
 import { validateAndNormalizeUrl } from "./utils";
 import type { Nip87Fetcher, NostrEvent } from "./types";
+import type { Logger } from "./logger";
 
 export type MintRecommendation = {
   score: number;
@@ -50,14 +51,22 @@ function extractMintUrlFromEvent(e: NostrEvent): string | null {
 
 export class NostrRecommendationsProvider {
   private readonly nip87Fetcher: Nip87Fetcher;
+  private readonly logger?: Logger;
 
-  constructor(fetcher: Nip87Fetcher) {
+  constructor(fetcher: Nip87Fetcher, logger?: Logger) {
     this.nip87Fetcher = fetcher;
+    this.logger = logger;
   }
 
   async discover(): Promise<Map<string, AggregatedMintRecommendation>> {
+    const log =
+      typeof this.logger?.child === "function"
+        ? this.logger.child({ module: "nostr", op: "discover" })
+        : this.logger;
     try {
+      log?.debug("Fetching NIP-87 events");
       const events = await this.nip87Fetcher();
+      log?.debug("Fetched events", { count: events.length });
       const recommendations = new Map<string, MintRecommendation[]>();
       events.forEach((e) => {
         if (!isCashuRecommendationEvent(e)) return;
@@ -71,9 +80,13 @@ export class NostrRecommendationsProvider {
         if (existing) existing.push(recommendation);
         else recommendations.set(normalizedUrl, [recommendation]);
       });
+      log?.debug("Aggregated recommendations", {
+        mints: recommendations.size,
+      });
       return aggregateMintRecommendations(recommendations);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      log?.error("Nostr discovery failed", { error: message });
       throw new Error(`Nostr discovery failed: ${message}`);
     }
   }

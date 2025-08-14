@@ -1,4 +1,5 @@
 import { validateAndNormalizeUrl } from "./utils";
+import type { Logger } from "./logger";
 
 type AuditorResponseEntry = {
   id: number;
@@ -45,23 +46,32 @@ function parseAuditorResponseEntry(
 
 export class AuditorSerive {
   private readonly baseUrl: string;
+  private readonly logger?: Logger;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, logger?: Logger) {
     this.baseUrl = baseUrl;
+    this.logger = logger;
   }
 
   async getAllMints(): Promise<Map<string, AuditorEntry>> {
+    const log =
+      typeof this.logger?.child === "function"
+        ? this.logger.child({ module: "auditor", op: "getAllMints" })
+        : this.logger;
     const url = `${this.baseUrl}/mints?limit=1000&skip=0`;
+    log?.debug("Fetching auditor data", { url });
     const res = await fetch(url);
     const data = (await res.json()) as AuditorResponseEntry[];
     const auditorMap = new Map<string, AuditorEntry>();
     for (const d of data) {
       const parsed = parseAuditorResponseEntry(d);
       if (!parsed) {
+        log?.warn("Skipping invalid auditor entry", { url: d.url });
         continue;
       }
       auditorMap.set(parsed.url, parsed);
     }
+    log?.info("Auditor data parsed", { count: auditorMap.size });
     return auditorMap;
   }
 }
