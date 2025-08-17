@@ -91,26 +91,24 @@ export class KYMHandler {
         ? this.logger.child({ module: "main", op: "discover" })
         : this.logger;
     log?.info("Discover start");
-    const nostrData = this.nostrProvider.discover().catch((e) => {
+
+    const nostrMap = await this.nostrProvider.discover().catch((e) => {
       const message = e instanceof Error ? e.message : String(e);
       throw new Error(`Could not get nostr recommendations: ${message}`);
     });
-    const auditorData = this.auditorService.getAllMints();
-    const bucket = await Promise.allSettled([nostrData, auditorData]);
-    if (bucket[0].status === "rejected") {
-      const reason = bucket[0].reason;
-      const message = reason instanceof Error ? reason.message : String(reason);
-      throw new Error(`Could not get nostr recommendations: ${message}`);
-    }
-    const mergedData: any[] = [];
+    const urls = Array.from(nostrMap.keys());
+    log?.info("Nostr recommendations fetched", { urls: urls.length });
 
-    bucket[0].value.forEach((data, url) => {
-      if (bucket[1].status === "fulfilled") {
-        const auditor = bucket[1].value.get(url) || {};
-        mergedData.push({ ...data, url, auditorData: auditor });
-      } else {
-        mergedData.push({ ...data, url, auditorData: {} });
-      }
+    const auditorEntries = await this.auditorService.getAllMints({
+      urls,
+      includeSwapStats: true,
+      swapOptions: { limit: 1000 },
+    });
+
+    const mergedData: any[] = [];
+    nostrMap.forEach((data, url) => {
+      const auditor = auditorEntries.get(url) || {};
+      mergedData.push({ ...data, url, auditorData: auditor });
     });
     log?.info("Discover merged results", { count: mergedData.length });
     return new SearchResult(mergedData);
