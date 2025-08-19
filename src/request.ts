@@ -81,6 +81,25 @@ function parseRetryAfter(retryAfter: string | null): number | null {
   return null;
 }
 
+function createNamedError(message: string, name: string): Error {
+  // Prefer DOMException when available (browsers, some runtimes)
+  try {
+    if (typeof DOMException !== "undefined") {
+      return new DOMException(message, name) as unknown as Error;
+    }
+  } catch {
+    // fallthrough to standard Error
+  }
+  const err = new Error(message);
+  try {
+    Object.defineProperty(err, "name", { value: name });
+  } catch {
+    // fallback assignment if defineProperty blocked
+    (err as any).name = name;
+  }
+  return err;
+}
+
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise<void>((resolve, reject) => {
@@ -91,7 +110,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 
     const onAbort = () => {
       cleanup();
-      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+      reject(signal?.reason ?? createNamedError("Aborted", "AbortError"));
     };
 
     const cleanup = () => {
@@ -109,7 +128,7 @@ function createTimeoutSignal(
   if (!timeoutMs || timeoutMs <= 0) return null;
   const controller = new AbortController();
   const id = setTimeout(
-    () => controller.abort(new DOMException("Timeout", "TimeoutError")),
+    () => controller.abort(createNamedError("Timeout", "TimeoutError")),
     timeoutMs,
   );
   controller.signal.addEventListener("abort", () => clearTimeout(id), {
